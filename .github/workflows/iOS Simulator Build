@@ -1,0 +1,36 @@
+name: iOS Simulator Build (Example)
+on: [workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode 16
+        run: sudo xcode-select -s /Applications/Xcode_16.app/Contents/Developer
+      - name: Build S2Pass for iOS Simulator (signing OFF)
+        env:
+          CONFIG: Release
+          SDK: iphonesimulator
+          DEST: generic/platform=iOS Simulator
+          DERIVED: ${{ github.workspace }}/build
+        run: |
+          set -euo pipefail
+          xcodebuild                 -project S2Pass.xcodeproj                 -scheme S2Pass                 -sdk "$SDK" -configuration "$CONFIG"                 -destination "$DEST" -derivedDataPath "$DERIVED"                 CODE_SIGNING_ALLOWED=NO                 build | tee "$GITHUB_WORKSPACE/xcodebuild.log"
+      - name: Package .app for Appetize
+        env:
+          CONFIG: Release
+          DERIVED: ${{ github.workspace }}/build
+        run: |
+          set -euo pipefail
+          PROD_DIR="$(/usr/bin/find "$DERIVED/Build/Products" -type d -maxdepth 1 -name "*-iphonesimulator" | head -n1)"
+          if [ -z "$PROD_DIR" ]; then echo "No simulator products found" >&2; exit 1; fi
+          APP_PATH="$(/bin/ls -d "$PROD_DIR"/*.app | head -n1)"
+          if [ -z "$APP_PATH" ]; then echo "No .app found" >&2; exit 1; fi
+          (cd "$PROD_DIR" && zip -r AppetizeBuild.app.zip "$(basename "$APP_PATH")")
+          mv "$PROD_DIR/AppetizeBuild.app.zip" "$GITHUB_WORKSPACE/AppetizeBuild.app.zip"
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: appetize-simulator-app
+          path: AppetizeBuild.app.zip
