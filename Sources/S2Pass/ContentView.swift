@@ -10,11 +10,11 @@ struct SchoolTheme: Equatable {
     var accent: Color
 
     static let bradford = SchoolTheme(
-        primary: Color(hex: 0xFF7A00),
+        primary: Color(hex: 0xFF7A00), // Orange
         onPrimary: .white,
-        background: Color(uiColor: .systemGroupedBackground),
-        surface: Color(uiColor: .secondarySystemBackground),
-        onSurface: Color.primary,
+        background: Color(hex: 0xF2F2F7), // iOS grouped-like bg, no UIKit
+        surface: .white,                 // card surface
+        onSurface: .primary,
         accent: Color(hex: 0x1F2937)
     )
 }
@@ -234,8 +234,8 @@ struct EventDetailView: View {
                     .padding(.top, 8)
                 }
                 .padding()
-                .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 16))
-                .shadow(radius: 2, y: 1)
+                .background(Color.white, in: RoundedRectangle(cornerRadius: 16))
+                .overlay { RoundedRectangle(cornerRadius: 16).stroke(Color.black.opacity(0.06)) }
                 .padding(.horizontal)
             }
             .padding(.vertical)
@@ -325,9 +325,7 @@ struct EventCard: View {
         .padding(12)
         .frame(width: 300)
         .background(theme.surface, in: RoundedRectangle(cornerRadius: 16))
-        .overlay {
-            RoundedRectangle(cornerRadius: 16).stroke(.quaternary, lineWidth: 1)
-        }
+        .overlay { RoundedRectangle(cornerRadius: 16).stroke(Color.black.opacity(0.08)) }
     }
 }
 
@@ -361,9 +359,7 @@ struct AvailabilityTag: View {
             .font(.caption2.weight(.heavy))
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(
-                (availability == .available ? theme.primary : .gray.opacity(0.3)), in: Capsule()
-            )
+            .background((availability == .available ? theme.primary : .gray.opacity(0.3)), in: Capsule())
             .foregroundStyle(theme.onPrimary)
     }
 }
@@ -382,7 +378,8 @@ struct DateBadge: View {
                 .lineLimit(1)
         }
         .padding(8)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .background(Color.white, in: RoundedRectangle(cornerRadius: 12))
+        .overlay { RoundedRectangle(cornerRadius: 12).stroke(Color.black.opacity(0.08)) }
     }
 }
 
@@ -410,9 +407,7 @@ struct VenuePill: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .background(isActive ? theme.primary : Color.clear, in: Capsule())
-            .overlay(
-                Capsule().stroke(isActive ? Color.clear : .quaternary, lineWidth: 1)
-            )
+            .overlay(Capsule().stroke(isActive ? Color.clear : Color.black.opacity(0.1)))
             .foregroundStyle(isActive ? theme.onPrimary : .secondary)
     }
 }
@@ -446,7 +441,8 @@ struct SchoolChip: View {
         .font(.caption.weight(.semibold))
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .background(.ultraThinMaterial, in: Capsule())
+        .background(Color.white, in: Capsule())
+        .overlay { Capsule().stroke(Color.black.opacity(0.1)) }
     }
 }
 
@@ -465,15 +461,16 @@ struct TicketRow: View {
                 Text("\(ticket.type) x \(ticket.quantity)")
                     .font(.footnote.weight(.semibold))
                     .padding(.horizontal, 8).padding(.vertical, 4)
-                    .background(.thinMaterial, in: Capsule())
+                    .background(Color.white, in: Capsule())
+                    .overlay { Capsule().stroke(Color.black.opacity(0.1)) }
                 Spacer()
                 Text("\(ticket.event.host.name) VS \(ticket.event.opponent.name)")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
         .padding(12)
-        .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 14))
-        .overlay { RoundedRectangle(cornerRadius: 14).stroke(.quaternary, lineWidth: 1) }
+        .background(Color.white, in: RoundedRectangle(cornerRadius: 14))
+        .overlay { RoundedRectangle(cornerRadius: 14).stroke(Color.black.opacity(0.08)) }
     }
 }
 
@@ -517,7 +514,7 @@ struct NewsCard: View {
         }
         .padding()
         .background(theme.surface, in: RoundedRectangle(cornerRadius: 14))
-        .overlay { RoundedRectangle(cornerRadius: 14).stroke(.quaternary, lineWidth: 1) }
+        .overlay { RoundedRectangle(cornerRadius: 14).stroke(Color.black.opacity(0.08)) }
     }
 }
 
