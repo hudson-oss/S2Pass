@@ -1,3 +1,7 @@
+# File path: .github/workflows/ios-simulator-build.yml
+# Purpose: Build S2Pass for the iOS Simulator with XcodeGen, Swift 5.10,
+# and **only** zip the .app when BUILD SUCCEEDED. Always upload xcodebuild.log.
+
 name: iOS Simulator Build (Appetize)
 
 on:
@@ -9,7 +13,7 @@ jobs:
     env:
       CONFIG: Release
       SDK: iphonesimulator
-      DEST: generic/platform=iOS\ Simulator
+      DEST: generic/platform=iOS Simulator
       DERIVED: ${{ github.workspace }}/build
       SWIFT_VER: "5.10"
     steps:
@@ -49,26 +53,37 @@ jobs:
             SWIFT_VERSION=$SWIFT_VER \
             build | tee "$GITHUB_WORKSPACE/xcodebuild.log"
 
-      - name: Show first compiler errors (if any)
-        if: always()
+      - name: Check build result & surface errors
+        id: gate
         run: |
-          echo "--- First error lines from xcodebuild.log ---"
-          grep -nE "(error:|fatal error:)" "$GITHUB_WORKSPACE/xcodebuild.log" | head -n 60 || echo "(no explicit 'error:' lines found)"
+          if grep -q "BUILD SUCCEEDED" "$GITHUB_WORKSPACE/xcodebuild.log"; then
+            echo "built=true" >> $GITHUB_OUTPUT
+            echo "✅ BUILD SUCCEEDED"
+          else
+            echo "built=false" >> $GITHUB_OUTPUT
+            echo "❌ BUILD FAILED — showing first compiler errors:" >&2
+            grep -nE "(error:|fatal error:)" "$GITHUB_WORKSPACE/xcodebuild.log" | head -n 80 || true
+          fi
 
-      - name: Zip .app for Appetize (if build produced it)
-        if: success()
+      - name: Zip .app for Appetize (only if build succeeded)
+        if: steps.gate.outputs.built == 'true'
         run: |
           set -euo pipefail
           echo "DerivedData root: $DERIVED"
-          ls -la "$DERIVED/Build/Products" || true
-          APP_DIR=$(find "$DERIVED/Build/Products" -maxdepth 1 -type d -name "*-iphonesimulator" | head -n1 || true)
+          # Show where Xcode actually put products
+          xcodebuild -project S2Pass.xcodeproj -scheme S2Pass -showBuildSettings | \ 
+            grep -E 'BUILT_PRODUCTS_DIR|CONFIGURATION_BUILD_DIR|OBJROOT|SYMROOT' || true
+
+          # Locate first simulator products dir and .app
+          APP_DIR=$(find "$DERIVED/Build/Products" -type d -maxdepth 1 -name "*-iphonesimulator" | head -n1 || true)
           if [ -z "$APP_DIR" ]; then
             echo "❌ Could not locate *-iphonesimulator output folder." >&2
             exit 1
           fi
           echo "Using products dir: $APP_DIR"
           ls -la "$APP_DIR" || true
-          APP_PATH=$(ls -d "$APP_DIR"/*.app 2>/dev/null | head -n1 || true)
+
+          APP_PATH=$(find "$APP_DIR" -maxdepth 1 -name "*.app" -type d | head -n1 || true)
           if [ -z "$APP_PATH" ] || [ ! -d "$APP_PATH" ]; then
             echo "❌ No .app found in $APP_DIR. See xcodebuild.log above." >&2
             exit 1
@@ -86,7 +101,8 @@ jobs:
           path: |
             AppetizeBuild.app.zip
             xcodebuild.log
+          if-no-files-found: ignore
 
-      - name: Fail the job if build step failed
-        if: failure()
+      - name: Fail the job if build failed
+        if: steps.gate.outputs.built != 'true'
         run: exit 1
