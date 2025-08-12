@@ -5,10 +5,20 @@ on:
 
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Select Xcode 16 (best-effort) & show version
+        run: |
+          set -e
+          # Prefer any installed Xcode 16 on the runner
+          CANDIDATE=$(ls /Applications | grep -E '^Xcode_16.*\.app$' | head -n1 || true)
+          if [ -n "$CANDIDATE" ]; then
+            sudo xcode-select -s "/Applications/$CANDIDATE"
+          fi
+          xcodebuild -version
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -44,7 +54,7 @@ jobs:
           echo "Looking in: $APP_DIR"
           ls -la "$APP_DIR" || true
           APP_PATH=$(ls -d "$APP_DIR"/*.app 2>/dev/null | head -n1 || true)
-          if [ -z "$APP_PATH\" ] || [ ! -d "$APP_PATH" ]; then
+          if [ -z "$APP_PATH" ] || [ ! -d "$APP_PATH" ]; then
             echo "❌ No .app found. See xcodebuild.log above." >&2
             exit 1
           fi
