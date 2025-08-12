@@ -1,0 +1,62 @@
+name: iOS Simulator Build (Appetize)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Show generated project & schemes
+        run: |
+          ls -la
+          xcodebuild -list -project S2Pass.xcodeproj
+
+      - name: Build S2Pass (iOS Simulator, signing OFF)
+        env:
+          CONFIG: Release
+          SDK: iphonesimulator
+          DEST: 'platform=iOS Simulator,name=iPhone 15 Pro'
+          DERIVED: ${{ github.workspace }}/build
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project S2Pass.xcodeproj \
+            -scheme S2Pass \
+            -sdk "$SDK" -configuration "$CONFIG" \
+            -destination "$DEST" -derivedDataPath "$DERIVED" \
+            CODE_SIGNING_ALLOWED=NO \
+            build | tee $GITHUB_WORKSPACE/xcodebuild.log
+
+      - name: Zip .app for Appetize
+        run: |
+          set -euo pipefail
+          APP_DIR="$GITHUB_WORKSPACE/build/Build/Products/${CONFIG}-iphonesimulator"
+          echo "Looking in: $APP_DIR"
+          ls -la "$APP_DIR" || true
+          APP_PATH=$(ls -d "$APP_DIR"/*.app 2>/dev/null | head -n1 || true)
+          if [ -z "$APP_PATH\" ] || [ ! -d "$APP_PATH" ]; then
+            echo "❌ No .app found. See xcodebuild.log above." >&2
+            exit 1
+          fi
+          cd "$APP_DIR"
+          ZIP_NAME=AppetizeBuild.app.zip
+          zip -r "$ZIP_NAME" "$(basename "$APP_PATH")"
+          mv "$ZIP_NAME" "$GITHUB_WORKSPACE/"
+
+      - name: Upload artifact (.app.zip and build log)
+        uses: actions/upload-artifact@v4
+        with:
+          name: appetize-simulator-app
+          path: |
+            AppetizeBuild.app.zip
+            xcodebuild.log
