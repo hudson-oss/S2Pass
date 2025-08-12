@@ -1,3 +1,7 @@
+# File path: .github/workflows/ios-simulator-build.yml
+# Purpose: Build iOS *Simulator* app without pinning a specific simulator model.
+# Fixes error: "Unable to find a device matching the provided destination specifier"
+
 name: iOS Simulator Build (Appetize)
 
 on:
@@ -10,10 +14,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Select Xcode 16 (best-effort) & show version
+      - name: Select Xcode 16 (best‑effort) & show version
         run: |
           set -e
-          # Prefer any installed Xcode 16 on the runner
           CANDIDATE=$(ls /Applications | grep -E '^Xcode_16.*\.app$' | head -n1 || true)
           if [ -n "$CANDIDATE" ]; then
             sudo xcode-select -s "/Applications/$CANDIDATE"
@@ -35,7 +38,7 @@ jobs:
         env:
           CONFIG: Release
           SDK: iphonesimulator
-          DEST: 'platform=iOS Simulator,name=iPhone 15 Pro'
+          DEST: 'generic/platform=iOS Simulator'   # ← generic destination avoids device-name mismatches
           DERIVED: ${{ github.workspace }}/build
         run: |
           set -euo pipefail
@@ -70,3 +73,9 @@ jobs:
           path: |
             AppetizeBuild.app.zip
             xcodebuild.log
+
+# Notes:
+# • Using a *generic* iOS Simulator destination builds for the Simulator SDK without pinning a device name.
+# • If you ever need a specific device: set DEST to something like
+#   DEST: 'platform=iOS Simulator,OS=18.0,name=iPhone 16 Pro'
+#   but this will vary over time as simulators change names/OS versions.
