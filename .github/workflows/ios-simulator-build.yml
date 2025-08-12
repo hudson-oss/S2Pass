@@ -1,8 +1,3 @@
-# File path: .github/workflows/ios-simulator-build.yml
-# Purpose: Build iOS *Simulator* app with XcodeGen project. Fixes:
-#  • "CONFIG: unbound variable" by setting env at the job level
-#  • Device name mismatches by using a generic simulator destination
-
 name: iOS Simulator Build (Appetize)
 
 on:
@@ -14,8 +9,9 @@ jobs:
     env:
       CONFIG: Release
       SDK: iphonesimulator
-      DEST: generic/platform=iOS Simulator
+      DEST: generic/platform=iOS\ Simulator
       DERIVED: ${{ github.workspace }}/build
+      SWIFT_VER: "5.10"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -41,6 +37,7 @@ jobs:
           xcodebuild -list -project S2Pass.xcodeproj || true
 
       - name: Build S2Pass (iOS Simulator, signing OFF)
+        continue-on-error: true
         run: |
           set -euo pipefail
           xcodebuild \
@@ -49,9 +46,17 @@ jobs:
             -sdk "$SDK" -configuration "$CONFIG" \
             -destination "$DEST" -derivedDataPath "$DERIVED" \
             CODE_SIGNING_ALLOWED=NO \
+            SWIFT_VERSION=$SWIFT_VER \
             build | tee "$GITHUB_WORKSPACE/xcodebuild.log"
 
-      - name: Zip .app for Appetize
+      - name: Show first compiler errors (if any)
+        if: always()
+        run: |
+          echo "--- First error lines from xcodebuild.log ---"
+          grep -nE "(error:|fatal error:)" "$GITHUB_WORKSPACE/xcodebuild.log" | head -n 60 || echo "(no explicit 'error:' lines found)"
+
+      - name: Zip .app for Appetize (if build produced it)
+        if: success()
         run: |
           set -euo pipefail
           echo "DerivedData root: $DERIVED"
@@ -73,10 +78,15 @@ jobs:
           zip -r "$ZIP_NAME" "$(basename "$APP_PATH")"
           mv "$ZIP_NAME" "$GITHUB_WORKSPACE/"
 
-      - name: Upload artifact (.app.zip and build log)
+      - name: Upload artifact (always include xcodebuild.log)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: appetize-simulator-app
           path: |
             AppetizeBuild.app.zip
             xcodebuild.log
+
+      - name: Fail the job if build step failed
+        if: failure()
+        run: exit 1
