@@ -12,8 +12,8 @@ struct SchoolTheme: Equatable {
     static let bradford = SchoolTheme(
         primary: Color(hex: 0xFF7A00), // Orange
         onPrimary: .white,
-        background: Color(hex: 0xF2F2F7), // iOS grouped-like bg, no UIKit
-        surface: .white,                 // card surface
+        background: Color(hex: 0xF2F2F7), // neutral bg (no UIKit)
+        surface: .white,                  // card surface
         onSurface: .primary,
         accent: Color(hex: 0x1F2937)
     )
@@ -164,7 +164,8 @@ struct EventsView: View {
                     Label("FILTER", systemImage: "line.3.horizontal.decrease.circle")
                         .font(.subheadline.bold())
                         .padding(8)
-                        .background(theme.surface, in: Capsule())
+                        .background(theme.surface)
+                        .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
             }
@@ -229,13 +230,15 @@ struct EventDetailView: View {
                             .frame(maxWidth: .infinity)
                             .padding()
                             .foregroundStyle(theme.onPrimary)
-                            .background(theme.primary, in: RoundedRectangle(cornerRadius: 14))
+                            .background(theme.primary)
+                            .clipShape(RoundedRectangle(cornerRadius: 14))
                     }
                     .padding(.top, 8)
                 }
                 .padding()
-                .background(Color.white, in: RoundedRectangle(cornerRadius: 16))
-                .overlay { RoundedRectangle(cornerRadius: 16).stroke(Color.black.opacity(0.06)) }
+                .background(Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.black.opacity(0.06)))
                 .padding(.horizontal)
             }
             .padding(.vertical)
@@ -324,8 +327,9 @@ struct EventCard: View {
         }
         .padding(12)
         .frame(width: 300)
-        .background(theme.surface, in: RoundedRectangle(cornerRadius: 16))
-        .overlay { RoundedRectangle(cornerRadius: 16).stroke(Color.black.opacity(0.08)) }
+        .background(theme.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.black.opacity(0.08)))
     }
 }
 
@@ -359,7 +363,8 @@ struct AvailabilityTag: View {
             .font(.caption2.weight(.heavy))
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background((availability == .available ? theme.primary : .gray.opacity(0.3)), in: Capsule())
+            .background((availability == .available ? theme.primary : .gray.opacity(0.3)))
+            .clipShape(Capsule())
             .foregroundStyle(theme.onPrimary)
     }
 }
@@ -378,8 +383,9 @@ struct DateBadge: View {
                 .lineLimit(1)
         }
         .padding(8)
-        .background(Color.white, in: RoundedRectangle(cornerRadius: 12))
-        .overlay { RoundedRectangle(cornerRadius: 12).stroke(Color.black.opacity(0.08)) }
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.black.opacity(0.08)))
     }
 }
 
@@ -406,7 +412,8 @@ struct VenuePill: View {
             .font(.caption.weight(.semibold))
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(isActive ? theme.primary : Color.clear, in: Capsule())
+            .background(isActive ? theme.primary : Color.clear)
+            .clipShape(Capsule())
             .overlay(Capsule().stroke(isActive ? Color.clear : Color.black.opacity(0.1)))
             .foregroundStyle(isActive ? theme.onPrimary : .secondary)
     }
@@ -441,8 +448,9 @@ struct SchoolChip: View {
         .font(.caption.weight(.semibold))
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .background(Color.white, in: Capsule())
-        .overlay { Capsule().stroke(Color.black.opacity(0.1)) }
+        .background(Color.white)
+        .clipShape(Capsule())
+        .overlay(Capsule().stroke(Color.black.opacity(0.1)))
     }
 }
 
@@ -461,16 +469,18 @@ struct TicketRow: View {
                 Text("\(ticket.type) x \(ticket.quantity)")
                     .font(.footnote.weight(.semibold))
                     .padding(.horizontal, 8).padding(.vertical, 4)
-                    .background(Color.white, in: Capsule())
-                    .overlay { Capsule().stroke(Color.black.opacity(0.1)) }
+                    .background(Color.white)
+                    .clipShape(Capsule())
+                    .overlay(Capsule().stroke(Color.black.opacity(0.1)))
                 Spacer()
                 Text("\(ticket.event.host.name) VS \(ticket.event.opponent.name)")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
         .padding(12)
-        .background(Color.white, in: RoundedRectangle(cornerRadius: 14))
-        .overlay { RoundedRectangle(cornerRadius: 14).stroke(Color.black.opacity(0.08)) }
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.black.opacity(0.08)))
     }
 }
 
@@ -492,7 +502,8 @@ struct QuickLinkRow: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .foregroundStyle(theme.onPrimary)
-                    .background(theme.primary, in: RoundedRectangle(cornerRadius: 12))
+                    .background(theme.primary)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.plain)
             }
@@ -513,8 +524,9 @@ struct NewsCard: View {
             HStack { Spacer(); Button("VIEW ALL") {} }
         }
         .padding()
-        .background(theme.surface, in: RoundedRectangle(cornerRadius: 14))
-        .overlay { RoundedRectangle(cornerRadius: 14).stroke(Color.black.opacity(0.08)) }
+        .background(theme.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.black.opacity(0.08)))
     }
 }
 
