@@ -1,6 +1,7 @@
 # File path: .github/workflows/ios-simulator-build.yml
-# Purpose: Build iOS *Simulator* app without pinning a specific simulator model.
-# Fixes error: "Unable to find a device matching the provided destination specifier"
+# Purpose: Build iOS *Simulator* app with XcodeGen project. Fixes:
+#  • "CONFIG: unbound variable" by setting env at the job level
+#  • Device name mismatches by using a generic simulator destination
 
 name: iOS Simulator Build (Appetize)
 
@@ -10,6 +11,11 @@ on:
 jobs:
   build:
     runs-on: macos-15
+    env:
+      CONFIG: Release
+      SDK: iphonesimulator
+      DEST: generic/platform=iOS Simulator
+      DERIVED: ${{ github.workspace }}/build
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,14 +38,9 @@ jobs:
       - name: Show generated project & schemes
         run: |
           ls -la
-          xcodebuild -list -project S2Pass.xcodeproj
+          xcodebuild -list -project S2Pass.xcodeproj || true
 
       - name: Build S2Pass (iOS Simulator, signing OFF)
-        env:
-          CONFIG: Release
-          SDK: iphonesimulator
-          DEST: 'generic/platform=iOS Simulator'   # ← generic destination avoids device-name mismatches
-          DERIVED: ${{ github.workspace }}/build
         run: |
           set -euo pipefail
           xcodebuild \
@@ -48,17 +49,23 @@ jobs:
             -sdk "$SDK" -configuration "$CONFIG" \
             -destination "$DEST" -derivedDataPath "$DERIVED" \
             CODE_SIGNING_ALLOWED=NO \
-            build | tee $GITHUB_WORKSPACE/xcodebuild.log
+            build | tee "$GITHUB_WORKSPACE/xcodebuild.log"
 
       - name: Zip .app for Appetize
         run: |
           set -euo pipefail
-          APP_DIR="$GITHUB_WORKSPACE/build/Build/Products/${CONFIG}-iphonesimulator"
-          echo "Looking in: $APP_DIR"
+          echo "DerivedData root: $DERIVED"
+          ls -la "$DERIVED/Build/Products" || true
+          APP_DIR=$(find "$DERIVED/Build/Products" -maxdepth 1 -type d -name "*-iphonesimulator" | head -n1 || true)
+          if [ -z "$APP_DIR" ]; then
+            echo "❌ Could not locate *-iphonesimulator output folder." >&2
+            exit 1
+          fi
+          echo "Using products dir: $APP_DIR"
           ls -la "$APP_DIR" || true
           APP_PATH=$(ls -d "$APP_DIR"/*.app 2>/dev/null | head -n1 || true)
           if [ -z "$APP_PATH" ] || [ ! -d "$APP_PATH" ]; then
-            echo "❌ No .app found. See xcodebuild.log above." >&2
+            echo "❌ No .app found in $APP_DIR. See xcodebuild.log above." >&2
             exit 1
           fi
           cd "$APP_DIR"
@@ -73,9 +80,3 @@ jobs:
           path: |
             AppetizeBuild.app.zip
             xcodebuild.log
-
-# Notes:
-# • Using a *generic* iOS Simulator destination builds for the Simulator SDK without pinning a device name.
-# • If you ever need a specific device: set DEST to something like
-#   DEST: 'platform=iOS Simulator,OS=18.0,name=iPhone 16 Pro'
-#   but this will vary over time as simulators change names/OS versions.
