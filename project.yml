@@ -1,0 +1,19 @@
+name: S2Pass
+
+options:
+  deploymentTarget:
+    iOS: "16.0"
+
+targets:
+  S2Pass:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: Sources/S2Pass
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.hudsonoss.S2Pass
+      PRODUCT_NAME: S2Pass
+      INFOPLIST_FILE: Sources/S2Pass/Info.plist
+    scheme:
+      testTargets: []
