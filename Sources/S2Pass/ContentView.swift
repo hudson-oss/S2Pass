@@ -10,12 +10,12 @@ struct SchoolTheme: Equatable {
     var accent: Color
 
     static let bradford = SchoolTheme(
-        primary: Color(hex: 0xFF7A00),               // Orange (customizable)
+        primary: Color(hex: 0xFF7A00),
         onPrimary: .white,
         background: Color(uiColor: .systemGroupedBackground),
         surface: Color(uiColor: .secondarySystemBackground),
         onSurface: Color.primary,
-        accent: Color(hex: 0x1F2937)                 // Slate-ish
+        accent: Color(hex: 0x1F2937)
     )
 }
 
@@ -68,9 +68,7 @@ struct SampleData {
         ]
     }
 
-    static var tickets: [Ticket] {
-        [Ticket(event: events[0], section: nil, row: nil, seat: nil, type: "GA", quantity: 1)]
-    }
+    static var tickets: [Ticket] { [Ticket(event: events[0], section: nil, row: nil, seat: nil, type: "GA", quantity: 1)] }
 }
 
 // MARK: - Root & Tabs (entry view)
@@ -154,10 +152,7 @@ struct EventsView: View {
     @State private var side: VenueSide? = nil
     @State private var showFilter = false
 
-    var filtered: [EventItem] {
-        if let side { return SampleData.events.filter { $0.side == side } }
-        return SampleData.events
-    }
+    var filtered: [EventItem] { side == nil ? SampleData.events : SampleData.events.filter { $0.side == side } }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -165,9 +160,7 @@ struct EventsView: View {
                 Text("SELECT AN EVENT TO PURCHASE TICKETS")
                     .font(.footnote).foregroundStyle(.secondary)
                 Spacer()
-                Button {
-                    showFilter.toggle()
-                } label: {
+                Button { showFilter.toggle() } label: {
                     Label("FILTER", systemImage: "line.3.horizontal.decrease.circle")
                         .font(.subheadline.bold())
                         .padding(8)
@@ -209,10 +202,11 @@ struct EventDetailView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(event.sport).font(.title3.bold())
                     HStack(spacing: 8) {
-                        Label(event.date, systemImage: "clock")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        Image(systemName: "clock")
+                        Text(event.date.formatted(date: .abbreviated, time: .shortened))
                     }
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
                     .accessibilityElement(children: .combine)
 
                     VenuePillRow(side: event.side, theme: theme)
@@ -229,20 +223,18 @@ struct EventDetailView: View {
                             .foregroundStyle(theme.primary)
                     }
 
-                    Button {
-                        // Purchase flow hook
-                    } label: {
+                    Button { /* purchase flow */ } label: {
                         Text("PURCHASE TICKETS")
                             .font(.headline.weight(.bold))
                             .frame(maxWidth: .infinity)
                             .padding()
                             .foregroundStyle(theme.onPrimary)
-                            .background(theme.primary, in: .rect(cornerRadius: 14))
+                            .background(theme.primary, in: RoundedRectangle(cornerRadius: 14))
                     }
                     .padding(.top, 8)
                 }
                 .padding()
-                .background(.background, in: .rect(cornerRadius: 16))
+                .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 16))
                 .shadow(radius: 2, y: 1)
                 .padding(.horizontal)
             }
@@ -332,7 +324,7 @@ struct EventCard: View {
         }
         .padding(12)
         .frame(width: 300)
-        .background(theme.surface, in: .rect(cornerRadius: 16))
+        .background(theme.surface, in: RoundedRectangle(cornerRadius: 16))
         .overlay {
             RoundedRectangle(cornerRadius: 16).stroke(.quaternary, lineWidth: 1)
         }
@@ -390,7 +382,7 @@ struct DateBadge: View {
                 .lineLimit(1)
         }
         .padding(8)
-        .background(.thinMaterial, in: .rect(cornerRadius: 12))
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
     }
 }
 
@@ -480,7 +472,7 @@ struct TicketRow: View {
             }
         }
         .padding(12)
-        .background(.background, in: .rect(cornerRadius: 14))
+        .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 14))
         .overlay { RoundedRectangle(cornerRadius: 14).stroke(.quaternary, lineWidth: 1) }
     }
 }
@@ -494,9 +486,7 @@ struct QuickLinkRow: View {
     var body: some View {
         HStack(spacing: 12) {
             ForEach(items) { item in
-                Button {
-                    // hook
-                } label: {
+                Button { /* hook */ } label: {
                     HStack(spacing: 8) {
                         Image(systemName: item.icon)
                         Text(item.title)
@@ -505,7 +495,7 @@ struct QuickLinkRow: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .foregroundStyle(theme.onPrimary)
-                    .background(theme.primary, in: .rect(cornerRadius: 12))
+                    .background(theme.primary, in: RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.plain)
             }
@@ -526,7 +516,7 @@ struct NewsCard: View {
             HStack { Spacer(); Button("VIEW ALL") {} }
         }
         .padding()
-        .background(theme.surface, in: .rect(cornerRadius: 14))
+        .background(theme.surface, in: RoundedRectangle(cornerRadius: 14))
         .overlay { RoundedRectangle(cornerRadius: 14).stroke(.quaternary, lineWidth: 1) }
     }
 }
@@ -586,13 +576,10 @@ struct FilterSheet: View {
         NavigationStack {
             List {
                 Section("Venue") {
-                    Picker("Venue", selection: Binding(
-                        get: { selected ?? .home },
-                        set: { selected = $0 }
-                    )) {
-                        Text("Any").tag(VenueSide?.none)
+                    Picker("Venue", selection: $selected) {
+                        Text("Any").tag(nil as VenueSide?)
                         ForEach(VenueSide.allCases, id: \.self) { side in
-                            Text(side.rawValue).tag(VenueSide?.some(side))
+                            Text(side.rawValue).tag(Optional(side))
                         }
                     }
                     .pickerStyle(.inline)
