@@ -1,6 +1,6 @@
-# File path: .github/workflows/ios-simulator-build.yml
-# Purpose: Build S2Pass for the iOS Simulator with XcodeGen, Swift 5.10,
-# and **only** zip the .app when BUILD SUCCEEDED. Always upload xcodebuild.log.
+# File: .github/workflows/ios-simulator-build.yml
+# Change: Remove the stray backslash before grep (it caused `command not found`),
+# and only zip when BUILD SUCCEEDED.
 
 name: iOS Simulator Build (Appetize)
 
@@ -70,11 +70,9 @@ jobs:
         run: |
           set -euo pipefail
           echo "DerivedData root: $DERIVED"
-          # Show where Xcode actually put products
-          xcodebuild -project S2Pass.xcodeproj -scheme S2Pass -showBuildSettings | \ 
-            grep -E 'BUILT_PRODUCTS_DIR|CONFIGURATION_BUILD_DIR|OBJROOT|SYMROOT' || true
+          # No trailing backslash here — this was causing `command not found`.
+          xcodebuild -project S2Pass.xcodeproj -scheme S2Pass -showBuildSettings | grep -E 'BUILT_PRODUCTS_DIR|CONFIGURATION_BUILD_DIR|OBJROOT|SYMROOT' || true
 
-          # Locate first simulator products dir and .app
           APP_DIR=$(find "$DERIVED/Build/Products" -type d -maxdepth 1 -name "*-iphonesimulator" | head -n1 || true)
           if [ -z "$APP_DIR" ]; then
             echo "❌ Could not locate *-iphonesimulator output folder." >&2
@@ -83,7 +81,7 @@ jobs:
           echo "Using products dir: $APP_DIR"
           ls -la "$APP_DIR" || true
 
-          APP_PATH=$(find "$APP_DIR" -maxdepth 1 -name "*.app" -type d | head -n1 || true)
+          APP_PATH=$(find "$APP_DIR" -maxdepth 1 -type d -name "*.app" | head -n1 || true)
           if [ -z "$APP_PATH" ] || [ ! -d "$APP_PATH" ]; then
             echo "❌ No .app found in $APP_DIR. See xcodebuild.log above." >&2
             exit 1
