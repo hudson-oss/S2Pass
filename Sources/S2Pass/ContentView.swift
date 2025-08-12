@@ -1,3 +1,9 @@
+// Paste this over Sources/S2Pass/ContentView.swift
+// Fixes build errors:
+// 1) Remove Hashable from School/EventItem/Ticket (Color/Theme aren’t Hashable)
+// 2) Rename NewsCard.body -> blurb (avoid redeclaration of 'body')
+// 3) Use .navigationBarTitleDisplayMode(.inline) (works on iOS 16+)
+
 import SwiftUI
 
 // MARK: - Theme
@@ -20,7 +26,7 @@ struct SchoolTheme: Equatable {
 }
 
 // MARK: - Models
-struct School: Identifiable, Hashable {
+struct School: Identifiable {
     let id = UUID()
     let name: String
     let logoName: String? // SF Symbol or asset name
@@ -31,7 +37,7 @@ enum VenueSide: String, CaseIterable { case home = "HOME", away = "AWAY" }
 
 enum Availability: String { case available = "AVAILABLE", notAvailable = "NOT AVAILABLE" }
 
-struct EventItem: Identifiable, Hashable {
+struct EventItem: Identifiable {
     let id = UUID()
     let sport: String // e.g., "BOYS BASEBALL (JV/V)"
     let date: Date
@@ -43,7 +49,7 @@ struct EventItem: Identifiable, Hashable {
     let hasReservedSeating: Bool
 }
 
-struct Ticket: Identifiable, Hashable {
+struct Ticket: Identifiable {
     let id = UUID()
     let event: EventItem
     let section: String?
@@ -134,7 +140,7 @@ struct HomeView: View {
                 // News
                 SectionHeader(title: "NEWS:", actionTitle: "VIEW ALL")
                 NewsCard(title: "SAMPLE NEWS TITLE",
-                         body: "Lorem ipsum dolor sit amet, consectetuer adipiscing elit, sed diam nonummy nibh euismod tincidunt ut laoreet dolore magna aliquam erat volutpat.",
+                         blurb: "Lorem ipsum dolor sit amet, consectetuer adipiscing elit, sed diam nonummy nibh euismod tincidunt ut laoreet dolore magna aliquam erat volutpat.",
                          theme: theme)
                 .padding(.horizontal)
             }
@@ -142,7 +148,7 @@ struct HomeView: View {
             .background(theme.background.ignoresSafeArea())
         }
         .navigationTitle("Homepage")
-        .toolbarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
@@ -186,7 +192,7 @@ struct EventsView: View {
                 .presentationDetents([.medium])
         }
         .navigationTitle("Events")
-        .toolbarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
@@ -245,7 +251,7 @@ struct EventDetailView: View {
             .background(theme.background.ignoresSafeArea())
         }
         .navigationTitle("Event Details")
-        .toolbarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
@@ -262,7 +268,7 @@ struct TicketsView: View {
             }
         }
         .navigationTitle("Your Tickets")
-        .toolbarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
@@ -514,13 +520,13 @@ struct QuickLinkRow: View {
 
 struct NewsCard: View {
     let title: String
-    let body: String
+    let blurb: String
     let theme: SchoolTheme
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title).font(.headline)
-            Text(body).font(.subheadline).foregroundStyle(.secondary)
+            Text(blurb).font(.subheadline).foregroundStyle(.secondary)
             HStack { Spacer(); Button("VIEW ALL") {} }
         }
         .padding()
