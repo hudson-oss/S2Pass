@@ -15,5 +15,6 @@ targets:
       PRODUCT_BUNDLE_IDENTIFIER: com.hudsonoss.S2Pass
       PRODUCT_NAME: S2Pass
       INFOPLIST_FILE: Sources/S2Pass/Info.plist
+      SWIFT_VERSION: "5.10"
     scheme:
       testTargets: []
