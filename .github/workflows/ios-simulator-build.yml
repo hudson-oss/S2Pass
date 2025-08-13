@@ -1,36 +1,106 @@
-name: iOS Simulator Build (Example)
-on: [workflow_dispatch]
+# File: .github/workflows/ios-simulator-build.yml
+# Change: Remove the stray backslash before grep (it caused `command not found`),
+# and only zip when BUILD SUCCEEDED.
+
+name: iOS Simulator Build (Appetize)
+
+on:
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-15
+    env:
+      CONFIG: Release
+      SDK: iphonesimulator
+      DEST: generic/platform=iOS Simulator
+      DERIVED: ${{ github.workspace }}/build
+      SWIFT_VER: "5.10"
     steps:
-      - uses: actions/checkout@v4
-      - name: Select Xcode 16
-        run: sudo xcode-select -s /Applications/Xcode_16.app/Contents/Developer
-      - name: Build S2Pass for iOS Simulator (signing OFF)
-        env:
-          CONFIG: Release
-          SDK: iphonesimulator
-          DEST: generic/platform=iOS Simulator
-          DERIVED: ${{ github.workspace }}/build
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 16 (best‑effort) & show version
+        run: |
+          set -e
+          CANDIDATE=$(ls /Applications | grep -E '^Xcode_16.*\.app$' | head -n1 || true)
+          if [ -n "$CANDIDATE" ]; then
+            sudo xcode-select -s "/Applications/$CANDIDATE"
+          fi
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Show generated project & schemes
+        run: |
+          ls -la
+          xcodebuild -list -project S2Pass.xcodeproj || true
+
+      - name: Build S2Pass (iOS Simulator, signing OFF)
+        continue-on-error: true
         run: |
           set -euo pipefail
-          xcodebuild                 -project S2Pass.xcodeproj                 -scheme S2Pass                 -sdk "$SDK" -configuration "$CONFIG"                 -destination "$DEST" -derivedDataPath "$DERIVED"                 CODE_SIGNING_ALLOWED=NO                 build | tee "$GITHUB_WORKSPACE/xcodebuild.log"
-      - name: Package .app for Appetize
-        env:
-          CONFIG: Release
-          DERIVED: ${{ github.workspace }}/build
+          xcodebuild \
+            -project S2Pass.xcodeproj \
+            -scheme S2Pass \
+            -sdk "$SDK" -configuration "$CONFIG" \
+            -destination "$DEST" -derivedDataPath "$DERIVED" \
+            CODE_SIGNING_ALLOWED=NO \
+            SWIFT_VERSION=$SWIFT_VER \
+            build | tee "$GITHUB_WORKSPACE/xcodebuild.log"
+
+      - name: Check build result & surface errors
+        id: gate
+        run: |
+          if grep -q "BUILD SUCCEEDED" "$GITHUB_WORKSPACE/xcodebuild.log"; then
+            echo "built=true" >> $GITHUB_OUTPUT
+            echo "✅ BUILD SUCCEEDED"
+          else
+            echo "built=false" >> $GITHUB_OUTPUT
+            echo "❌ BUILD FAILED — showing first compiler errors:" >&2
+            grep -nE "(error:|fatal error:)" "$GITHUB_WORKSPACE/xcodebuild.log" | head -n 80 || true
+          fi
+
+      - name: Zip .app for Appetize (only if build succeeded)
+        if: steps.gate.outputs.built == 'true'
         run: |
           set -euo pipefail
-          PROD_DIR="$(/usr/bin/find "$DERIVED/Build/Products" -type d -maxdepth 1 -name "*-iphonesimulator" | head -n1)"
-          if [ -z "$PROD_DIR" ]; then echo "No simulator products found" >&2; exit 1; fi
-          APP_PATH="$(/bin/ls -d "$PROD_DIR"/*.app | head -n1)"
-          if [ -z "$APP_PATH" ]; then echo "No .app found" >&2; exit 1; fi
-          (cd "$PROD_DIR" && zip -r AppetizeBuild.app.zip "$(basename "$APP_PATH")")
-          mv "$PROD_DIR/AppetizeBuild.app.zip" "$GITHUB_WORKSPACE/AppetizeBuild.app.zip"
-      - name: Upload artifact
+          echo "DerivedData root: $DERIVED"
+          # No trailing backslash here — this was causing `command not found`.
+          xcodebuild -project S2Pass.xcodeproj -scheme S2Pass -showBuildSettings | grep -E 'BUILT_PRODUCTS_DIR|CONFIGURATION_BUILD_DIR|OBJROOT|SYMROOT' || true
+
+          APP_DIR=$(find "$DERIVED/Build/Products" -type d -maxdepth 1 -name "*-iphonesimulator" | head -n1 || true)
+          if [ -z "$APP_DIR" ]; then
+            echo "❌ Could not locate *-iphonesimulator output folder." >&2
+            exit 1
+          fi
+          echo "Using products dir: $APP_DIR"
+          ls -la "$APP_DIR" || true
+
+          APP_PATH=$(find "$APP_DIR" -maxdepth 1 -type d -name "*.app" | head -n1 || true)
+          if [ -z "$APP_PATH" ] || [ ! -d "$APP_PATH" ]; then
+            echo "❌ No .app found in $APP_DIR. See xcodebuild.log above." >&2
+            exit 1
+          fi
+          cd "$APP_DIR"
+          ZIP_NAME=AppetizeBuild.app.zip
+          zip -r "$ZIP_NAME" "$(basename "$APP_PATH")"
+          mv "$ZIP_NAME" "$GITHUB_WORKSPACE/"
+
+      - name: Upload artifact (always include xcodebuild.log)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: appetize-simulator-app
-          path: AppetizeBuild.app.zip
+          path: |
+            AppetizeBuild.app.zip
+            xcodebuild.log
+          if-no-files-found: ignore
+
+      - name: Fail the job if build failed
+        if: steps.gate.outputs.built != 'true'
+        run: exit 1
