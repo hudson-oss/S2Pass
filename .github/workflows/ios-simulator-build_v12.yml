@@ -1,4 +1,4 @@
-name: iOS Simulator Build (Appetize) v12
+name: iOS Simulator Build (Appetize) v13
 on:
   workflow_dispatch:
 
@@ -21,18 +21,20 @@ jobs:
 
       - name: Show tool versions
         run: |
+          set -e
           xcodebuild -version
           xcode-select -p
           sw_vers
           echo "Workspace: $GITHUB_WORKSPACE"
           ls -la
 
-      - name: Ensure project.yml + Info.plist exist (auto-bootstrap)
+      # Create minimal project.yml + Info.plist if missing
+      - name: Bootstrap project.yml and Info.plist if missing
+        shell: bash
         run: |
           set -euo pipefail
           mkdir -p Sources/S2Pass
           if [ ! -f project.yml ]; then
-            echo "No project.yml found — creating a minimal one for S2Pass..."
             cat > project.yml <<'YML'
 name: S2Pass
 
@@ -70,7 +72,7 @@ targets:
 YML
           fi
           if [ ! -f Sources/S2Pass/Info.plist ]; then
-            echo "No Info.plist found — creating a minimal one..."
+            mkdir -p Sources/S2Pass
             cat > Sources/S2Pass/Info.plist <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -99,10 +101,8 @@ YML
 </plist>
 PLIST
           fi
-          echo "Repo tree (top):"
-          ls -la
-          echo "S2Pass tree:"
-          ls -la Sources/S2Pass || true
+          echo "Top-level files:"; ls -la
+          echo "Sources/S2Pass:"; ls -la Sources/S2Pass || true
 
       - name: Install XcodeGen
         run: |
@@ -113,37 +113,34 @@ PLIST
         run: |
           set -euo pipefail
           xcodegen generate
-          echo "Generated files:"
           ls -la
-          echo "Project contents:"
-          ls -la S2Pass.xcodeproj || true
+          xcodebuild -list -project S2Pass.xcodeproj
 
       - id: detect
         name: Detect project/workspace and scheme
         run: |
           set -euo pipefail
-          XCPROJ=$(git ls-files -- '**/*.xcodeproj' || true | head -n1)
-          XCWORK=$(git ls-files -- '**/*.xcworkspace' || true | head -n1)
+          XCPROJ="$(ls -1 **/*.xcodeproj 2>/dev/null | head -n1 || true)"
+          XCWORK="$(ls -1 **/*.xcworkspace 2>/dev/null | head -n1 || true)"
           if [ -n "$XCWORK" ]; then
             FILE="$XCWORK"; KIND=workspace
-            LIST=$(xcodebuild -list -workspace "$FILE" 2>/dev/null || true)
+            LIST="$(xcodebuild -list -workspace "$FILE" 2>/dev/null || true)"
           elif [ -n "$XCPROJ" ]; then
             FILE="$XCPROJ"; KIND=project
-            LIST=$(xcodebuild -list -project "$FILE" 2>/dev/null || true)
+            LIST="$(xcodebuild -list -project "$FILE" 2>/dev/null || true)"
           else
-            echo "❌ Still no .xcodeproj/.xcworkspace after xcodegen" >&2
-            echo "Repo tree:"; ls -R | sed -n '1,200p'
+            echo "❌ No .xcodeproj/.xcworkspace after generation" >&2
             exit 1
           fi
           echo "$LIST"
-          SCHEME=$(echo "$LIST" | awk '/Schemes:/{flag=1;next}/^$/{flag=0}flag' | head -n1 | sed 's/^\s*//;s/\s*$//')
+          SCHEME="$(echo "$LIST" | awk '/Schemes:/{flag=1;next}/^$/{flag=0}flag' | head -n1 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
           if [ -z "${SCHEME:-}" ]; then
-            echo "❌ Could not detect a shared scheme. (XcodeGen should have created one named S2Pass.)" >&2
+            echo "❌ Could not detect a shared scheme" >&2
             exit 1
           fi
-          echo "file=$FILE"   >> $GITHUB_OUTPUT
-          echo "kind=$KIND"   >> $GITHUB_OUTPUT
-          echo "scheme=$SCHEME" >> $GITHUB_OUTPUT
+          echo "file=$FILE" >> "$GITHUB_OUTPUT"
+          echo "kind=$KIND" >> "$GITHUB_OUTPUT"
+          echo "scheme=$SCHEME" >> "$GITHUB_OUTPUT"
 
       - name: Build (signing OFF)
         run: |
@@ -151,15 +148,15 @@ PLIST
           if [ "${{ steps.detect.outputs.kind }}" = "workspace" ]; then
             xcodebuild \
               -workspace "${{ steps.detect.outputs.file }}" \
-              -scheme    "${{ steps.detect.outputs.scheme }}" \
+              -scheme "${{ steps.detect.outputs.scheme }}" \
               -sdk "$SDK" -configuration "$CONFIG" \
               -destination "$DEST" -derivedDataPath "$DERIVED" \
               CODE_SIGNING_ALLOWED=NO \
               build | tee "$GITHUB_WORKSPACE/xcodebuild.log"
           else
             xcodebuild \
-              -project   "${{ steps.detect.outputs.file }}" \
-              -scheme    "${{ steps.detect.outputs.scheme }}" \
+              -project "${{ steps.detect.outputs.file }}" \
+              -scheme "${{ steps.detect.outputs.scheme }}" \
               -sdk "$SDK" -configuration "$CONFIG" \
               -destination "$DEST" -derivedDataPath "$DERIVED" \
               CODE_SIGNING_ALLOWED=NO \
