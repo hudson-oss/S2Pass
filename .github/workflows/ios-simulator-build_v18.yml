@@ -1,4 +1,4 @@
-name: iOS Simulator Build (Appetize) v18
+name: iOS Simulator Build (Appetize) v19
 on:
   workflow_dispatch:
 
@@ -28,101 +28,105 @@ jobs:
         run: |
           mkdir -p Sources/S2Pass
 
-      - name: Write project files
+      - name: Write project files (if missing)
         shell: bash
         run: |
           set -euo pipefail
-          printf "%s" "$PROJECT_YML" > project.yml
-          mkdir -p Sources/S2Pass
-          printf "%s" "$INFO_PLIST" > Sources/S2Pass/Info.plist
-        env:
-          PROJECT_YML: |
-            name: S2Pass
-            
-            configs:
-              Debug: debug
-              Release: release
-            
-            settings:
-              IPHONEOS_DEPLOYMENT_TARGET: 15.0
-              TARGETED_DEVICE_FAMILY: "1,2"
-            
-            targets:
-              S2Pass:
-                type: application
-                platform: iOS
-                sources:
-                  - path: Sources/S2Pass
-                resources:
-                  - path: Sources/S2Pass/Assets.xcassets
-                settings:
-                  PRODUCT_BUNDLE_IDENTIFIER: com.hudsonoss.S2Pass
-                  SWIFT_VERSION: 5.0
-                scheme: {}
-                info:
-                  path: Sources/S2Pass/Info.plist
-                  properties:
-                    CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
-                    CFBundleName: S2Pass
-                    CFBundleDisplayName: S2Pass
-                    CFBundleShortVersionString: 1.0
-                    CFBundleVersion: 1
-                    UILaunchScreen: {}
-                    UIApplicationSceneManifest:
-                      UIApplicationSupportsMultipleScenes: false
-          INFO_PLIST: |
-            <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-            <plist version="1.0">
-              <dict>
-                <key>CFBundleIdentifier</key>
-                <string>com.hudsonoss.S2Pass</string>
-                <key>CFBundleName</key>
-                <string>S2Pass</string>
-                <key>CFBundleDisplayName</key>
-                <string>S2Pass</string>
-                <key>CFBundleShortVersionString</key>
-                <string>1.0</string>
-                <key>CFBundleVersion</key>
-                <string>1</string>
-                <key>UILaunchScreen</key>
-                <dict/>
-                <key>UIApplicationSceneManifest</key>
-                <dict>
-                  <key>UIApplicationSupportsMultipleScenes</key>
-                  <false/>
-                </dict>
-                <key>LSRequiresIPhoneOS</key>
-                <true/>
-              </dict>
-            </plist>
+          if [ ! -f project.yml ]; then
+            cat > project.yml <<'EOF'
+name: S2Pass
+
+configs:
+  Debug: debug
+  Release: release
+
+settings:
+  IPHONEOS_DEPLOYMENT_TARGET: 15.0
+  TARGETED_DEVICE_FAMILY: "1,2"
+
+targets:
+  S2Pass:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources/S2Pass
+    resources:
+      - path: Sources/S2Pass/Assets.xcassets
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.hudsonoss.S2Pass
+      SWIFT_VERSION: 5.0
+    scheme: {}
+    info:
+      path: Sources/S2Pass/Info.plist
+      properties:
+        CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
+        CFBundleName: S2Pass
+        CFBundleDisplayName: S2Pass
+        CFBundleShortVersionString: 1.0
+        CFBundleVersion: 1
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+EOF
+          fi
+          if [ ! -f Sources/S2Pass/Info.plist ]; then
+            cat > Sources/S2Pass/Info.plist <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleIdentifier</key>
+  <string>com.hudsonoss.S2Pass</string>
+  <key>CFBundleName</key>
+  <string>S2Pass</string>
+  <key>CFBundleDisplayName</key>
+  <string>S2Pass</string>
+  <key>CFBundleShortVersionString</key>
+  <string>1.0</string>
+  <key>CFBundleVersion</key>
+  <string>1</string>
+  <key>UILaunchScreen</key>
+  <dict/>
+  <key>UIApplicationSceneManifest</key>
+  <dict>
+    <key>UIApplicationSupportsMultipleScenes</key>
+    <false/>
+  </dict>
+  <key>LSRequiresIPhoneOS</key>
+  <true/>
+</dict>
+</plist>
+EOF
+          fi
+          # Ensure asset catalog root exists (even if empty)
+          mkdir -p Sources/S2Pass/Assets.xcassets
+          if [ ! -f Sources/S2Pass/Assets.xcassets/Contents.json ]; then
+            echo '{ "info": { "version": 1, "author": "xcode" } }' > Sources/S2Pass/Assets.xcassets/Contents.json
+          fi
 
       - name: Generate Xcode project
         run: |
           xcodegen generate
+          xcodebuild -list -project S2Pass.xcodeproj
 
-      - name: Build (signing off)
+      - name: Build (signing off, bypass AppIcon requirement)
         run: |
           set -euo pipefail
-          xcodebuild \
-            -project S2Pass.xcodeproj \
-            -scheme S2Pass \
-            -sdk "$SDK" -configuration "$CONFIG" \
-            -destination "$DEST" -derivedDataPath "$GITHUB_WORKSPACE/$DERIVED" \
-            CODE_SIGNING_ALLOWED=NO \
-            build | tee "$GITHUB_WORKSPACE/xcodebuild.log"
+          DERIVED_ABS="$GITHUB_WORKSPACE/$DERIVED"
+          xcodebuild             -project S2Pass.xcodeproj             -scheme S2Pass             -sdk "$SDK" -configuration "$CONFIG"             -destination "$DEST" -derivedDataPath "$DERIVED_ABS"             CODE_SIGNING_ALLOWED=NO             ASSETCATALOG_COMPILER_APPICON_NAME=             build | tee "$GITHUB_WORKSPACE/xcodebuild.log"
 
       - name: Package .app for Appetize
         run: |
           set -euo pipefail
-          PROD_DIR=$(find "$GITHUB_WORKSPACE/$DERIVED/Build/Products" -type d -maxdepth 1 -name "*-iphonesimulator" | head -n1 || true)
+          DERIVED_ABS="$GITHUB_WORKSPACE/$DERIVED"
+          PROD_DIR=$(find "$DERIVED_ABS/Build/Products" -type d -maxdepth 1 -name "*-iphonesimulator" | head -n1 || true)
           if [ -z "$PROD_DIR" ]; then
-            echo "No simulator products found" >&2
+            echo "No simulator products found in $DERIVED_ABS/Build/Products" >&2
             exit 1
           fi
           APP_PATH=$(ls -d "$PROD_DIR"/*.app 2>/dev/null | head -n1 || true)
           if [ -z "$APP_PATH" ]; then
-            echo "No .app found" >&2
+            echo "No .app found in $PROD_DIR" >&2
             exit 1
           fi
           (cd "$PROD_DIR" && zip -r AppetizeBuild.app.zip "$(basename "$APP_PATH")")
@@ -134,10 +138,16 @@ jobs:
           name: appetize-simulator-app
           path: AppetizeBuild.app.zip
 
-      - name: Upload logs (if present)
+      - name: Upload logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: xcodebuild-log
           path: ${{ github.workspace }}/xcodebuild.log
-          if-no-files-found: ignore
+          if-no-files-found: warn
+
+      - name: Show first error lines
+        if: always()
+        run: |
+          echo "---- First error lines ----"
+          grep -nE "error:|❌" "$GITHUB_WORKSPACE/xcodebuild.log" | head -n 80 || true
