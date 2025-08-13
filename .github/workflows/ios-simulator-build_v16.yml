@@ -1,4 +1,4 @@
-name: iOS Simulator Build (Appetize) v15
+name: iOS Simulator Build (Appetize) v16
 on:
   workflow_dispatch:
 
@@ -9,7 +9,7 @@ jobs:
       CONFIG: Release
       SDK: iphonesimulator
       DEST: generic/platform=iOS Simulator
-      DERIVED: ${{ github.workspace }}/build
+      DERIVED: build
 
     steps:
       - uses: actions/checkout@v4
@@ -25,10 +25,9 @@ jobs:
           xcodebuild -version
           xcode-select -p
           sw_vers
-          echo "Workspace: $GITHUB_WORKSPACE"
+          echo "Workspace:" "$GITHUB_WORKSPACE"
           ls -la
 
-      # Create minimal project files if missing (ASCII-only heredocs)
       - name: Bootstrap project.yml and Info.plist if missing
         shell: bash
         run: |
@@ -143,12 +142,13 @@ EOF
       - name: Build (signing OFF)
         run: |
           set -euo pipefail
+          DERIVED_ABS="$GITHUB_WORKSPACE/$DERIVED"
           if [ "${{ steps.detect.outputs.kind }}" = "workspace" ]; then
             xcodebuild \
               -workspace "${{ steps.detect.outputs.file }}" \
               -scheme "${{ steps.detect.outputs.scheme }}" \
               -sdk "$SDK" -configuration "$CONFIG" \
-              -destination "$DEST" -derivedDataPath "$DERIVED" \
+              -destination "$DEST" -derivedDataPath "$DERIVED_ABS" \
               CODE_SIGNING_ALLOWED=NO \
               build | tee "$GITHUB_WORKSPACE/xcodebuild.log"
           else
@@ -156,7 +156,7 @@ EOF
               -project "${{ steps.detect.outputs.file }}" \
               -scheme "${{ steps.detect.outputs.scheme }}" \
               -sdk "$SDK" -configuration "$CONFIG" \
-              -destination "$DEST" -derivedDataPath "$DERIVED" \
+              -destination "$DEST" -derivedDataPath "$DERIVED_ABS" \
               CODE_SIGNING_ALLOWED=NO \
               build | tee "$GITHUB_WORKSPACE/xcodebuild.log"
           fi
@@ -164,9 +164,10 @@ EOF
       - name: Package .app for Appetize
         run: |
           set -euo pipefail
-          PROD_DIR=$(find "$DERIVED/Build/Products" -type d -maxdepth 1 -name "*-iphonesimulator" | head -n1 || true)
+          DERIVED_ABS="$GITHUB_WORKSPACE/$DERIVED"
+          PROD_DIR=$(find "$DERIVED_ABS/Build/Products" -type d -maxdepth 1 -name "*-iphonesimulator" | head -n1 || true)
           if [ -z "$PROD_DIR" ]; then
-            echo "No simulator products found in $DERIVED/Build/Products" >&2
+            echo "No simulator products found in $DERIVED_ABS/Build/Products" >&2
             exit 1
           fi
           APP_PATH=$(ls -d "$PROD_DIR"/*.app 2>/dev/null | head -n1 || true)
