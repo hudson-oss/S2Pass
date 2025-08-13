@@ -1,5 +1,6 @@
 name: iOS Simulator Build (Appetize) v20
 
+
 on:
   workflow_dispatch:
 
@@ -57,10 +58,15 @@ jobs:
           set -euo pipefail
           DERIVED_ABS="$GITHUB_WORKSPACE/$DERIVED"
           xcodebuild \
+          
+        
             -project S2Pass.xcodeproj \
+
+            
             -scheme S2Pass \
             -sdk "$SDK" \
             -configuration "$CONFIG" \
+            
             -destination "$DEST" \
             CODE_SIGNING_ALLOWED=NO \
             ASSETCATALOG_COMPILER_APPICON_NAME="" \
@@ -69,11 +75,14 @@ jobs:
 
       - name: Package .app for Appetize
         run: |
+        
           set -euo pipefail
           DERIVED_ABS="$GITHUB_WORKSPACE/$DERIVED"
           PROD_DIR=$(find "$DERIVED_ABS/Build/Products" -type d -maxdepth 2 -name "*-iphonesimulator" | head -n1 || true)
+       
           if [ -z "$PROD_DIR" ]; then
             echo "No simulator products found in $DERIVED_ABS/Build/Products" >&2
+        
             exit 1
           fi
           APP_PATH=$(ls -d "$PROD_DIR"/*.app 2>/dev/null | head -n1 || true)
@@ -97,3 +106,4 @@ jobs:
           name: xcodebuild-log
           path: ${{ github.workspace }}/xcodebuild.log
           if-no-files-found: warn
+
