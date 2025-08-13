@@ -5,7 +5,7 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
     <key>CFBundleExecutable</key>
-    <string>$(EXECUTABLE_NAME)</string>
+    <string>S2Pass</string>
     <key>CFBundleIdentifier</key>
     <string>com.hudsonoss.S2Pass</string>
     <key>CFBundleInfoDictionaryVersion</key>
