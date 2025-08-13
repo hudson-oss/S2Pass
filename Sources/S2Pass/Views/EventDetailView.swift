@@ -22,15 +22,15 @@ struct EventDetailView: View {
                 }
             }.tint(Theme.schoolColor).padding([.leading, .top], 16)
 
-            Text(event.sportName).font(.title2).bold().padding(.horizontal, 16)
+            Text(event.sportName).font(.title2).fontWeight(.bold).padding(.horizontal, 16)
             Text("\(event.formattedTime)\n\(event.formattedDate)")
                 .font(.headline).padding(.horizontal, 16).padding(.vertical, 4)
 
             if !event.opponent.isEmpty {
                 HStack {
-                    VStack { Text(event.isHomeGame ? "HOME" : "AWAY").font(.caption).bold().foregroundStyle(.secondary); Text(event.location).font(.body).bold() }
-                    Spacer(); Text("VS").font(.headline).bold(); Spacer()
-                    VStack { Text(event.isHomeGame ? "AWAY" : "HOME").font(.caption).bold().foregroundStyle(.secondary); Text(event.opponent).font(.body).bold() }
+                    VStack { Text(event.isHomeGame ? "HOME" : "AWAY").font(.caption).fontWeight(.bold).foregroundStyle(.secondary); Text(event.location).font(.body).fontWeight(.bold) }
+                    Spacer(); Text("VS").font(.headline).fontWeight(.bold); Spacer()
+                    VStack { Text(event.isHomeGame ? "AWAY" : "HOME").font(.caption).fontWeight(.bold).foregroundStyle(.secondary); Text(event.opponent).font(.body).fontWeight(.bold) }
                 }.padding(.horizontal, 16).padding(.vertical, 6)
             }
 
@@ -42,12 +42,12 @@ struct EventDetailView: View {
             }.padding(.horizontal, 16).padding(.vertical, 6)
 
             Text(event.reservedSeatingAvailable ? "RESERVED SEATING AVAILABLE" : "NO RESERVED SEATING")
-                .font(.subheadline).bold().foregroundStyle(event.reservedSeatingAvailable ? Theme.schoolColor : .secondary)
+                .font(.subheadline).fontWeight(.bold).foregroundStyle(event.reservedSeatingAvailable ? Theme.schoolColor : .secondary)
                 .padding(.horizontal, 16).padding(.top, 4)
 
             HStack { Spacer()
                 Button("PURCHASE TICKETS") {}
-                    .font(.headline).bold()
+                    .font(.headline).fontWeight(.bold)
                     .padding(.vertical, 14).padding(.horizontal, 20)
                     .background(Theme.schoolColor).foregroundStyle(Theme.textColor(on: Theme.schoolColor))
                     .clipShape(RoundedRectangle(cornerRadius: 10))
