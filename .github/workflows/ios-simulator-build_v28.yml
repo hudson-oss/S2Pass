@@ -31,10 +31,10 @@ jobs:
 
           if [ ! -f Sources/S2Pass/Assets.xcassets/Contents.json ]; then
             echo '{ "info": { "version": 1, "author": "xcode" } }' > Sources/S2Pass/Assets.xcassets/Contents.json
-          fi
+         fi
 
 
-        - name: Update deployment target
+ -    - name: Update deployment target
     run: |
       sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET: *[0-9.][0-9.]*/IPHONEOS_DEPLOYMENT_TARGET: 16.0/' project.yml
 
@@ -43,7 +43,8 @@ jobs:
           xcodegen generate
           xcodebuild -list -project S2Pass.xcodeproj
 
-      - name: Build (signing off, x86_64)
+- name: Build (signing off, x86_64)
+
         run: |
           set -euo pipefail
           xcodebuild \
