@@ -35,7 +35,8 @@ struct ContentView: View {
             .background(Color(UIColor.systemGray6))
         }
         .accentColor(Theme.schoolColor)
-        .environment(\.colorScheme, .light) // designs are light-mode; remove if you want dark mode too
+        // ✅ FIX: use preferredColorScheme instead of the invalid `.environment(\_.colorScheme, .light)`
+        .preferredColorScheme(.light)
     }
 }
 
