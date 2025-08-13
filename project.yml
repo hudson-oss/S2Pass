@@ -1,0 +1,36 @@
+name: S2Pass
+
+options:
+  minimumXcodeGenVersion: 2.38.0
+
+configs:
+  Debug: debug
+  Release: release
+
+settings:
+  IPHONEOS_DEPLOYMENT_TARGET: 15.0
+  TARGETED_DEVICE_FAMILY: "1,2"   # iPhone, iPad
+
+targets:
+  S2Pass:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources/S2Pass
+    resources:
+      - path: Sources/S2Pass/Assets.xcassets
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.hudsonoss.S2Pass
+      SWIFT_VERSION: 5.0
+    scheme: {}
+    info:
+      path: Sources/S2Pass/Info.plist
+      properties:
+        CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
+        CFBundleName: S2Pass
+        CFBundleDisplayName: S2Pass
+        CFBundleShortVersionString: 1.0
+        CFBundleVersion: 1
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
