@@ -1,4 +1,4 @@
-name: iOS Simulator Build (Appetize) v13
+name: iOS Simulator Build (Appetize) v14
 on:
   workflow_dispatch:
 
@@ -28,14 +28,14 @@ jobs:
           echo "Workspace: $GITHUB_WORKSPACE"
           ls -la
 
-      # Create minimal project.yml + Info.plist if missing
+      # Create minimal project files if missing (pure ASCII; no fancy quotes)
       - name: Bootstrap project.yml and Info.plist if missing
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p Sources/S2Pass
           if [ ! -f project.yml ]; then
-            cat > project.yml <<'YML'
+            cat > project.yml <<'EOF'
 name: S2Pass
 
 configs:
@@ -44,7 +44,7 @@ configs:
 
 settings:
   IPHONEOS_DEPLOYMENT_TARGET: 15.0
-  TARGETED_DEVICE_FAMILY: "1,2"   # iPhone, iPad
+  TARGETED_DEVICE_FAMILY: "1,2"
 
 targets:
   S2Pass:
@@ -69,11 +69,10 @@ targets:
         UILaunchScreen: {}
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
-YML
+EOF
           fi
           if [ ! -f Sources/S2Pass/Info.plist ]; then
-            mkdir -p Sources/S2Pass
-            cat > Sources/S2Pass/Info.plist <<'PLIST'
+            cat > Sources/S2Pass/Info.plist <<'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -99,7 +98,7 @@ YML
     <true/>
 </dict>
 </plist>
-PLIST
+EOF
           fi
           echo "Top-level files:"; ls -la
           echo "Sources/S2Pass:"; ls -la Sources/S2Pass || true
@@ -113,29 +112,28 @@ PLIST
         run: |
           set -euo pipefail
           xcodegen generate
-          ls -la
           xcodebuild -list -project S2Pass.xcodeproj
 
       - id: detect
         name: Detect project/workspace and scheme
         run: |
           set -euo pipefail
-          XCPROJ="$(ls -1 **/*.xcodeproj 2>/dev/null | head -n1 || true)"
-          XCWORK="$(ls -1 **/*.xcworkspace 2>/dev/null | head -n1 || true)"
+          XCPROJ=$(ls -1 **/*.xcodeproj 2>/dev/null | head -n1 || true)
+          XCWORK=$(ls -1 **/*.xcworkspace 2>/dev/null | head -n1 || true)
           if [ -n "$XCWORK" ]; then
             FILE="$XCWORK"; KIND=workspace
-            LIST="$(xcodebuild -list -workspace "$FILE" 2>/dev/null || true)"
+            LIST=$(xcodebuild -list -workspace "$FILE" 2>/dev/null || true)
           elif [ -n "$XCPROJ" ]; then
             FILE="$XCPROJ"; KIND=project
-            LIST="$(xcodebuild -list -project "$FILE" 2>/dev/null || true)"
+            LIST=$(xcodebuild -list -project "$FILE" 2>/dev/null || true)
           else
-            echo "❌ No .xcodeproj/.xcworkspace after generation" >&2
+            echo "No .xcodeproj/.xcworkspace after generation" >&2
             exit 1
           fi
           echo "$LIST"
-          SCHEME="$(echo "$LIST" | awk '/Schemes:/{flag=1;next}/^$/{flag=0}flag' | head -n1 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+          SCHEME=$(echo "$LIST" | awk '/Schemes:/{flag=1;next}/^$/{flag=0}flag' | head -n1 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
           if [ -z "${SCHEME:-}" ]; then
-            echo "❌ Could not detect a shared scheme" >&2
+            echo "No shared scheme detected" >&2
             exit 1
           fi
           echo "file=$FILE" >> "$GITHUB_OUTPUT"
@@ -146,34 +144,22 @@ PLIST
         run: |
           set -euo pipefail
           if [ "${{ steps.detect.outputs.kind }}" = "workspace" ]; then
-            xcodebuild \
-              -workspace "${{ steps.detect.outputs.file }}" \
-              -scheme "${{ steps.detect.outputs.scheme }}" \
-              -sdk "$SDK" -configuration "$CONFIG" \
-              -destination "$DEST" -derivedDataPath "$DERIVED" \
-              CODE_SIGNING_ALLOWED=NO \
-              build | tee "$GITHUB_WORKSPACE/xcodebuild.log"
+            xcodebuild               -workspace "${{ steps.detect.outputs.file }}"               -scheme "${{ steps.detect.outputs.scheme }}"               -sdk "$SDK" -configuration "$CONFIG"               -destination "$DEST" -derivedDataPath "$DERIVED"               CODE_SIGNING_ALLOWED=NO               build | tee "$GITHUB_WORKSPACE/xcodebuild.log"
           else
-            xcodebuild \
-              -project "${{ steps.detect.outputs.file }}" \
-              -scheme "${{ steps.detect.outputs.scheme }}" \
-              -sdk "$SDK" -configuration "$CONFIG" \
-              -destination "$DEST" -derivedDataPath "$DERIVED" \
-              CODE_SIGNING_ALLOWED=NO \
-              build | tee "$GITHUB_WORKSPACE/xcodebuild.log"
+            xcodebuild               -project "${{ steps.detect.outputs.file }}"               -scheme "${{ steps.detect.outputs.scheme }}"               -sdk "$SDK" -configuration "$CONFIG"               -destination "$DEST" -derivedDataPath "$DERIVED"               CODE_SIGNING_ALLOWED=NO               build | tee "$GITHUB_WORKSPACE/xcodebuild.log"
           fi
 
       - name: Package .app for Appetize
         run: |
           set -euo pipefail
-          PROD_DIR="$(/usr/bin/find "$DERIVED/Build/Products" -type d -maxdepth 1 -name "*-iphonesimulator" | head -n1 || true)"
+          PROD_DIR=$(find "$DERIVED/Build/Products" -type d -maxdepth 1 -name "*-iphonesimulator" | head -n1 || true)
           if [ -z "$PROD_DIR" ]; then
-            echo "❌ No simulator products found in $DERIVED/Build/Products" >&2
+            echo "No simulator products found in $DERIVED/Build/Products" >&2
             exit 1
           fi
-          APP_PATH="$(/bin/ls -d "$PROD_DIR"/*.app 2>/dev/null | head -n1 || true)"
+          APP_PATH=$(ls -d "$PROD_DIR"/*.app 2>/dev/null | head -n1 || true)
           if [ -z "$APP_PATH" ]; then
-            echo "❌ No .app found in $PROD_DIR" >&2
+            echo "No .app found in $PROD_DIR" >&2
             exit 1
           fi
           (cd "$PROD_DIR" && zip -r AppetizeBuild.app.zip "$(basename "$APP_PATH")")
