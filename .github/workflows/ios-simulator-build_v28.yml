@@ -1,0 +1,90 @@
+name: iOS Simulator Build (Appetize) v28
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+    env:
+      CONFIG: Release
+      SDK: iphonesimulator
+      DEST: generic/platform=iOS Simulator
+      DERIVED: build
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Xcode 16.x
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '16'
+
+      - name: Install tools
+        run: |
+          brew update
+          brew install xcodegen
+
+      - name: Ensure asset catalog root exists
+        run: |
+          mkdir -p Sources/S2Pass/Assets.xcassets
+          if [ ! -f Sources/S2Pass/Assets.xcassets/Contents.json ]; then
+            echo '{ "info": { "version": 1, "author": "xcode" } }' > Sources/S2Pass/Assets.xcassets/Contents.json
+          fi
+
+      - name: Generate Xcode project
+        run: |
+          xcodegen generate
+          xcodebuild -list -project S2Pass.xcodeproj
+
+      - name: Build (signing off, x86_64)
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project S2Pass.xcodeproj \
+            -scheme S2Pass \
+            -sdk "$SDK" \
+            -configuration "$CONFIG" \
+            -destination "$DEST" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGNING_REQUIRED=NO \
+            DEVELOPMENT_TEAM="" \
+            ARCHS=x86_64 \
+            EXCLUDED_ARCHS=arm64 \
+            -derivedDataPath "$DERIVED" \
+            ASSETCATALOG_COMPILER_APPICON_NAME="" \
+            | tee "$GITHUB_WORKSPACE/xcodebuild.log"
+
+      - name: Package .app for Appetize
+        run: |
+          set -euo pipefail
+          # Use xcodebuild showBuildSettings to get build directory and app name
+          TARGET_BUILD_DIR=$(xcodebuild -project S2Pass.xcodeproj -scheme S2Pass -sdk "$SDK" -configuration "$CONFIG" -showBuildSettings | grep -m1 "TARGET_BUILD_DIR" | sed 's/.*= //')
+          FULL_PRODUCT_NAME=$(xcodebuild -project S2Pass.xcodeproj -scheme S2Pass -sdk "$SDK" -configuration "$CONFIG" -showBuildSettings | grep -m1 "FULL_PRODUCT_NAME" | sed 's/.*= //')
+          echo "TARGET_BUILD_DIR=$TARGET_BUILD_DIR"
+          echo "FULL_PRODUCT_NAME=$FULL_PRODUCT_NAME"
+          PROD_DIR="$TARGET_BUILD_DIR"
+          APP_PATH="$PROD_DIR/$FULL_PRODUCT_NAME"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "App not found at $APP_PATH"
+            ls -al "$PROD_DIR" || true
+            exit 1
+          fi
+          cd "$PROD_DIR"
+          zip -r AppetizeBuild.app.zip "$FULL_PRODUCT_NAME"
+          mv AppetizeBuild.app.zip "$GITHUB_WORKSPACE/"
+
+      - name: Upload artifact (Appetize)
+        uses: actions/upload-artifact@v4
+        with:
+          name: appetize-simulator-app
+          path: AppetizeBuild.app.zip
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log
+          path: ${{ github.workspace }}/xcodebuild.log
+          if-no-files-found: warn
