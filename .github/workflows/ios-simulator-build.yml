@@ -1,4 +1,4 @@
-name: iOS Simulator Build (Appetize) v10
+name: iOS Simulator Build (Appetize) v12
 on:
   workflow_dispatch:
 
@@ -14,40 +14,116 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Pick a valid preinstalled Xcode 16.x on the runner (avoids hard-coded paths)
       - name: Set up Xcode 16.x
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: '16'
 
-      - name: Show Xcode version
+      - name: Show tool versions
         run: |
           xcodebuild -version
           xcode-select -p
+          sw_vers
+          echo "Workspace: $GITHUB_WORKSPACE"
+          ls -la
 
-      # --- Optional: XcodeGen support (only if a project.yml exists) ---
-      - name: Install XcodeGen (if project.yml is present)
-        if: ${{ hashFiles('**/project.yml') != '' }}
+      - name: Ensure project.yml + Info.plist exist (auto-bootstrap)
+        run: |
+          set -euo pipefail
+          mkdir -p Sources/S2Pass
+          if [ ! -f project.yml ]; then
+            echo "No project.yml found — creating a minimal one for S2Pass..."
+            cat > project.yml <<'YML'
+name: S2Pass
+
+configs:
+  Debug: debug
+  Release: release
+
+settings:
+  IPHONEOS_DEPLOYMENT_TARGET: 15.0
+  TARGETED_DEVICE_FAMILY: "1,2"   # iPhone, iPad
+
+targets:
+  S2Pass:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources/S2Pass
+    resources:
+      - path: Sources/S2Pass/Assets.xcassets
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.hudsonoss.S2Pass
+      SWIFT_VERSION: 5.0
+    scheme: {}
+    info:
+      path: Sources/S2Pass/Info.plist
+      properties:
+        CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
+        CFBundleName: S2Pass
+        CFBundleDisplayName: S2Pass
+        CFBundleShortVersionString: 1.0
+        CFBundleVersion: 1
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+YML
+          fi
+          if [ ! -f Sources/S2Pass/Info.plist ]; then
+            echo "No Info.plist found — creating a minimal one..."
+            cat > Sources/S2Pass/Info.plist <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key>
+    <string>com.hudsonoss.S2Pass</string>
+    <key>CFBundleName</key>
+    <string>S2Pass</string>
+    <key>CFBundleDisplayName</key>
+    <string>S2Pass</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>UILaunchScreen</key>
+    <dict/>
+    <key>UIApplicationSceneManifest</key>
+    <dict>
+        <key>UIApplicationSupportsMultipleScenes</key>
+        <false/>
+    </dict>
+    <key>LSRequiresIPhoneOS</key>
+    <true/>
+</dict>
+</plist>
+PLIST
+          fi
+          echo "Repo tree (top):"
+          ls -la
+          echo "S2Pass tree:"
+          ls -la Sources/S2Pass || true
+
+      - name: Install XcodeGen
         run: |
           brew update
           brew install xcodegen
 
-      - name: Generate Xcode project with XcodeGen (if project.yml is present)
-        if: ${{ hashFiles('**/project.yml') != '' }}
+      - name: Generate Xcode project
         run: |
           set -euo pipefail
-          SPEC=$(git ls-files -- '**/project.yml' | head -n1)
-          echo "Using spec: $SPEC"
-          (cd "$(dirname "$SPEC")" && xcodegen)
+          xcodegen generate
+          echo "Generated files:"
+          ls -la
+          echo "Project contents:"
+          ls -la S2Pass.xcodeproj || true
 
-      # --- Detect project/workspace + scheme automatically ---
       - id: detect
         name: Detect project/workspace and scheme
         run: |
           set -euo pipefail
-          # Find a workspace or project anywhere in the repo
-          XCPROJ=$(git ls-files -- '**/*.xcodeproj' | head -n1 || true)
-          XCWORK=$(git ls-files -- '**/*.xcworkspace' | head -n1 || true)
+          XCPROJ=$(git ls-files -- '**/*.xcodeproj' || true | head -n1)
+          XCWORK=$(git ls-files -- '**/*.xcworkspace' || true | head -n1)
           if [ -n "$XCWORK" ]; then
             FILE="$XCWORK"; KIND=workspace
             LIST=$(xcodebuild -list -workspace "$FILE" 2>/dev/null || true)
@@ -55,13 +131,14 @@ jobs:
             FILE="$XCPROJ"; KIND=project
             LIST=$(xcodebuild -list -project "$FILE" 2>/dev/null || true)
           else
-            echo "❌ No .xcodeproj or .xcworkspace found in repo" >&2
+            echo "❌ Still no .xcodeproj/.xcworkspace after xcodegen" >&2
+            echo "Repo tree:"; ls -R | sed -n '1,200p'
             exit 1
           fi
           echo "$LIST"
           SCHEME=$(echo "$LIST" | awk '/Schemes:/{flag=1;next}/^$/{flag=0}flag' | head -n1 | sed 's/^\s*//;s/\s*$//')
           if [ -z "${SCHEME:-}" ]; then
-            echo "❌ Could not detect a shared scheme. Make sure your scheme is Shared in Xcode." >&2
+            echo "❌ Could not detect a shared scheme. (XcodeGen should have created one named S2Pass.)" >&2
             exit 1
           fi
           echo "file=$FILE"   >> $GITHUB_OUTPUT
@@ -111,9 +188,10 @@ jobs:
           name: appetize-simulator-app
           path: AppetizeBuild.app.zip
 
-      - name: Upload logs
+      - name: Upload logs (if present)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: xcodebuild-log
           path: ${{ github.workspace }}/xcodebuild.log
+          if-no-files-found: ignore
