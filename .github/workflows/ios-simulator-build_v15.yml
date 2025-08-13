@@ -1,4 +1,4 @@
-name: iOS Simulator Build (Appetize) v14
+name: iOS Simulator Build (Appetize) v15
 on:
   workflow_dispatch:
 
@@ -28,7 +28,7 @@ jobs:
           echo "Workspace: $GITHUB_WORKSPACE"
           ls -la
 
-      # Create minimal project files if missing (pure ASCII; no fancy quotes)
+      # Create minimal project files if missing (ASCII-only heredocs)
       - name: Bootstrap project.yml and Info.plist if missing
         shell: bash
         run: |
@@ -144,9 +144,21 @@ EOF
         run: |
           set -euo pipefail
           if [ "${{ steps.detect.outputs.kind }}" = "workspace" ]; then
-            xcodebuild               -workspace "${{ steps.detect.outputs.file }}"               -scheme "${{ steps.detect.outputs.scheme }}"               -sdk "$SDK" -configuration "$CONFIG"               -destination "$DEST" -derivedDataPath "$DERIVED"               CODE_SIGNING_ALLOWED=NO               build | tee "$GITHUB_WORKSPACE/xcodebuild.log"
+            xcodebuild \
+              -workspace "${{ steps.detect.outputs.file }}" \
+              -scheme "${{ steps.detect.outputs.scheme }}" \
+              -sdk "$SDK" -configuration "$CONFIG" \
+              -destination "$DEST" -derivedDataPath "$DERIVED" \
+              CODE_SIGNING_ALLOWED=NO \
+              build | tee "$GITHUB_WORKSPACE/xcodebuild.log"
           else
-            xcodebuild               -project "${{ steps.detect.outputs.file }}"               -scheme "${{ steps.detect.outputs.scheme }}"               -sdk "$SDK" -configuration "$CONFIG"               -destination "$DEST" -derivedDataPath "$DERIVED"               CODE_SIGNING_ALLOWED=NO               build | tee "$GITHUB_WORKSPACE/xcodebuild.log"
+            xcodebuild \
+              -project "${{ steps.detect.outputs.file }}" \
+              -scheme "${{ steps.detect.outputs.scheme }}" \
+              -sdk "$SDK" -configuration "$CONFIG" \
+              -destination "$DEST" -derivedDataPath "$DERIVED" \
+              CODE_SIGNING_ALLOWED=NO \
+              build | tee "$GITHUB_WORKSPACE/xcodebuild.log"
           fi
 
       - name: Package .app for Appetize
