@@ -35,7 +35,7 @@ struct ContentView: View {
             .background(Color(UIColor.systemGray6))
         }
         .accentColor(Theme.schoolColor)
-        // ✅ FIX: use preferredColorScheme instead of the invalid `.environment(\_.colorScheme, .light)`
+        // ✅ Fixed: use preferredColorScheme instead of the invalid .environment(\_.colorScheme, .light)
         .preferredColorScheme(.light)
     }
 }
