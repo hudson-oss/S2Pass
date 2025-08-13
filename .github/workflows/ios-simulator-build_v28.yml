@@ -28,11 +28,17 @@ jobs:
       - name: Ensure asset catalog root exists
         run: |
           mkdir -p Sources/S2Pass/Assets.xcassets
+
           if [ ! -f Sources/S2Pass/Assets.xcassets/Contents.json ]; then
             echo '{ "info": { "version": 1, "author": "xcode" } }' > Sources/S2Pass/Assets.xcassets/Contents.json
           fi
 
-      - name: Generate Xcode project
+
+        - name: Update deployment target
+    run: |
+      sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET: *[0-9.][0-9.]*/IPHONEOS_DEPLOYMENT_TARGET: 16.0/' project.yml
+
+- name: Generate Xcode project
         run: |
           xcodegen generate
           xcodebuild -list -project S2Pass.xcodeproj
