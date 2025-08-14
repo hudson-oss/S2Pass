@@ -1,0 +1,91 @@
+name: Simulator Preview and App Build
+on:
+  workflow_dispatch:
+
+jobs:
+  preview_and_build:
+    runs-on: macos-latest
+    env:
+      CONFIG: Release
+      SDK: iphonesimulator
+      DEST: generic/platform=iOS Simulator
+      DERIVED: build
+      ASSETCATALOG_COMPILER_APPICON_NAME: ""
+
+    steps:
+      # Checkout code
+      - uses: actions/checkout@v4
+
+      # Set up a stable Xcode version (17.x SDK)
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '15.4'
+
+      # Ensure there’s at least a dummy AppIcon to satisfy the build
+      - name: Ensure asset catalog
+        run: mkdir -p Assets.xcassets/AppIcon.appiconset
+
+      # Downgrade deployment target if needed
+      - name: Update deployment target
+        run: sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 18.0;/IPHONEOS_DEPLOYMENT_TARGET = 17.0;/g' project.yml
+
+      # Regenerate Xcode project
+      - name: Regenerate project
+        run: |
+          rm -rf S2Pass.xcodeproj
+          brew install xcodegen
+          xcodegen generate
+
+      # Build the app for the iOS simulator (no code signing, release configuration)
+      - name: Build app for simulator
+        run: |
+          xcodebuild \
+            -scheme S2Pass \
+            -configuration "$CONFIG" \
+            -sdk "$SDK" \
+            -destination "$DEST" \
+            -derivedDataPath "$DERIVED" \
+            ONLY_ACTIVE_ARCH=NO \
+            BUILD_LIBRARY_FOR_DISTRIBUTION=NO \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            ASSETCATALOG_COMPILER_APPICON_NAME=""
+
+      # Package the .app into a zip file
+      - name: Package .app
+        run: |
+          APP_DIR="$PWD/$DERIVED/Build/Products/$CONFIG-$SDK"
+          APP_NAME=$(find "$APP_DIR" -maxdepth 1 -name '*.app' -type d | head -n 1)
+          cd "$APP_DIR"
+          zip -r "$GITHUB_WORKSPACE/AppBuild.app.zip" "$(basename "$APP_NAME")"
+
+      # Boot the simulator for recording
+      - name: Boot simulator
+        run: |
+          xcrun simctl shutdown all || true
+          DEVICE_ID=$(xcrun simctl list devices available | grep -m1 "iPhone" | awk -F '[()]' '{print $2}')
+          xcrun simctl boot "$DEVICE_ID"
+
+      # Record the app running
+      - name: Record simulator video
+        run: |
+          xcrun simctl io booted recordVideo --codec=h264 preview.mp4 &
+          REC=$!
+          xcrun simctl launch booted com.hudsonoss.S2Pass || true
+          sleep 30
+          kill -2 $REC || true
+          sleep 5
+
+      # Upload both artifacts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: simulator-preview
+          path: preview.mp4
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: simulator-app-build
+          path: AppBuild.app.zip
