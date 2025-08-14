@@ -1,0 +1,36 @@
+name: Simulator Preview v2
+on:
+  workflow_dispatch:
+
+jobs:
+  preview:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '15.4' # or another stable Xcode version with iOS 17 SDK
+      - name: Boot simulator
+        run: |
+          # Shut down any booted devices to avoid conflicts
+          xcrun simctl shutdown all || true
+          # Boot the iPhone 15 simulator (falls back to first available device)
+          DEVICE_ID=$(xcrun simctl list devices available | grep -m1 "iPhone" | awk -F '[()]' '{print $2}')
+          xcrun simctl boot "$DEVICE_ID"
+      - name: Record simulator
+        run: |
+          # Start recording with H.264 codec
+          xcrun simctl io booted recordVideo --codec=h264 preview.mp4 &
+          REC=$!
+          # Launch the app
+          xcrun simctl launch booted com.hudsonoss.S2Pass || true
+          # Capture for 30 seconds
+          sleep 30
+          # Gracefully stop the recording
+          kill -2 $REC || true
+          # Wait a few seconds for the file to finish writing
+          sleep 5
+      - uses: actions/upload-artifact@v4
+        with:
+          name: simulator-preview
+          path: preview.mp4
